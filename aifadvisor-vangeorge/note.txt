@@ -1,0 +1,219 @@
+// SubHeader.jsx   import { Link } from "react-router-dom";
+import { useContext, useState } from "react";
+import { UserContext } from "./UserContext.jsx";
+import { Navigate } from "react-router-dom";
+import { useMediaQuery } from 'react-responsive';
+import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
+import axios from "axios";
+
+export default function SubHeader() {
+  const { user } = useContext(UserContext);
+  const [showSearchBox, setShowSearchBox] = useState(false);
+  const isSmallScreen = useMediaQuery({ query: '(max-width: 768px)' });
+  const [address, setAddress] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [places, setPlaces] = useState([]);
+
+  const handleChange = address => {
+    setAddress(address);
+  };
+
+  const handleSelect = address => {
+    setAddress(address);
+    geocodeByAddress(address)
+      .then(results => getLatLng(results[0]))
+      .then(latLng => console.log('Success', latLng))
+      .catch(error => console.error('Error', error));
+  };
+
+  const handleToggleSearchBox = () => {
+    if (isSmallScreen) {
+      setShowSearchBox(!showSearchBox);
+    }
+  };
+
+  const handleSuggestionsChange = (suggestions) => {
+    setSuggestions(suggestions);
+  };
+
+  const handleSearch = () => {
+    console.error('Start  fetching services: ');
+    //Assuming data is fetched after 2 seconds
+    axios.get(`/services/${address}`)
+    .then(response => {
+      const activeServices = response.data.filter( place => place.isActive) 
+      setPlaces(activeServices);
+      console.error('Success fetching services: ' + activeServices);
+    })
+    .catch(error => { 
+      console.error('Error fetching services: ' + error);
+    })
+    .finally( () => { 
+      //setLoading(false);
+    });     
+  };
+
+  return (
+    <div className="relative search-box w-full md:w-auto">
+      {/* {(isSmallScreen && showSearchBox) || !isSmallScreen ? ( */}
+        {/* Render only address input on small screens */}
+      {isSmallScreen && (
+        <div className="flex gap-2 border border-gray-300 rounded-full py-2 px-4 shadow-md shadow-gray-300 mt-4 md:mt-0">
+          {/* Input field for address */}
+          <div className="flex flex-col w-full">
+            <label htmlFor="serviceLocation" className="text-sm font-semibold">Where is the service?</label>
+            <PlacesAutocomplete value={address} onChange={handleChange} onSelect={handleSelect}>
+              {({ getInputProps, suggestions, getSuggestionItemProps, loading }) => (
+                <div className="autocomplete-container">
+                  <input
+                    {...getInputProps({
+                      placeholder: 'Enter address...',
+                      className: 'form-control',
+                    })}
+                    id="serviceLocation"
+                  />
+                  <div className="autocomplete-suggestions">
+                    {loading ? <div>Loading...</div> : null}
+                    {suggestions.map(suggestion => {
+                      const style = {
+                        backgroundColor: suggestion.active ? '#41b6e6' : '#fff',
+                      };
+                      return (
+                        <div
+                          {...getSuggestionItemProps(suggestion, { style })}
+                          key={suggestion.placeId}
+                        >
+                          {suggestion.description}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </PlacesAutocomplete>
+          </div>
+          {/* Search Button */}
+          <button onClick={handleSearch} className="bg-primary text-white py-2 px-4 rounded-full font-bold" >Search</button>
+        </div>
+      )}
+      
+      {!isSmallScreen && (
+          <div className="flex gap-2 border border-gray-300 rounded-full py-2 px-4 shadow-md shadow-gray-300 mt-4 md:mt-0">
+            {/* Input fields for search */}
+            <div className="flex flex-col">
+              <label htmlFor="serviceLocation" className="text-sm font-semibold">Where is the service?</label>
+              <PlacesAutocomplete value={address} onChange={handleChange} onSelect={handleSelect}>
+                {({ getInputProps, suggestions, getSuggestionItemProps, loading }) => (
+                  <div className="autocomplete-container">
+                    <input
+                      {...getInputProps({
+                        placeholder: 'Enter address...',
+                        className: 'form-control',
+                      })}
+                      id="serviceLocation"
+                    />
+                    <div className="autocomplete-suggestions">
+                      {loading ? <div>Loading...</div> : null}
+                      {suggestions.map(suggestion => {
+                        const style = {
+                          backgroundColor: suggestion.active ? '#41b6e6' : '#fff',
+                        };
+                        return (
+                          <div
+                            {...getSuggestionItemProps(suggestion, { style })}
+                            key={suggestion.placeId}
+                          >
+                            {suggestion.description}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </PlacesAutocomplete>
+            </div>
+            <div className="flex flex-col">
+              <label htmlFor="startDate" className="text-sm font-semibold">Start Date</label>
+              <input type="date" placeholder="Start Date"  id="startDate" />
+            </div>
+            <div className="flex flex-col">
+              <label htmlFor="endDate" className="text-sm font-semibold">End Date</label>
+              <input type="date" placeholder="End Date" id="endDate" />
+            </div>
+            <div className="flex flex-col">
+              <label htmlFor="budget" className="text-sm font-semibold">Budget (per job)</label>
+              <input type="number" placeholder="Budget (per job)" id="budget" />
+            </div>
+            {/* Search Button */}
+            <button  onClick={handleSearch} className="bg-primary text-white py-2 px-4 rounded-full font-bold">Search</button>
+          </div>)}
+          
+          {/* Autocomplete suggestions */}
+          <div className="absolute top-full left-0 bg-white w-full border-white rounded-b-lg shadow-md">
+            {suggestions.map(suggestion => (
+              <div key={suggestion.placeId} className="p-2 cursor-pointer hover:bg-gray-100">
+                {suggestion.description}
+              </div>
+            ))}
+          </div>
+
+      {/* ) : null } */}
+    </div>
+  );
+}
+
+//ServicePage.jsx import { useEffect, useState } from "react";
+import axios from "axios";
+import { Link } from "react-router-dom";
+import Image from "../Image.jsx";
+
+export default function ServicePage() {
+  const [places, setPlaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulating fetching data
+    setTimeout(() => {
+      //Assuming data is fetched after 2 seconds
+        axios.get('/services')
+        .then(response => {
+          const activeServices = response.data.filter( place => place.isActive) 
+          setPlaces(activeServices);
+        })
+        .catch(error => { 
+          console.error('Error fetching services: ' + error);
+        })
+        .finally( () => { 
+          setLoading(false);
+        });     
+    }, 2000);
+  }, []);
+
+  return (
+    <div>
+      {loading ? (
+        <div className="mt-8 grid gap-x-6 gap-y-8 grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
+          <p className="font-bold text-sm text-primary">Loading our services...</p>
+        </div>
+      ) : (
+        <div className="mt-8 grid gap-x-6 gap-y-8 grid-cols-1 md:grid-cols-3 lg:grid-cols-3">
+          {places.length > 0 && places.map(place => (
+            <Link key={place._id} to={'/service/' + place._id} className="block bg-white-500 mb-2 rounded-2xl">
+              {place.photos?.[0] && (
+                <Image className="rounded-2xl object-cover aspect-square" src={place.photos?.[0]} alt={place.title} />
+              )}
+              <h2 className="font-bold mt-2">{place.address}</h2>
+              <h3 className="text-sm text-gray-500">{place.title}</h3>
+              <h4 className="text-sm text-black-300">{place.description.split(' ').slice(0, 40).join(' ') + '...'}</h4>
+              <div className="mt-1">
+                <span className="font-bold">${place.price}</span> per hour
+              </div>
+              <button className="primary text-white mt-4 md:ml-4 font-bold">Book this service</button>
+            </Link>
+
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
